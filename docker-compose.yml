@@ -1,0 +1,33 @@
+services:
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       xray_metrics
+      POSTGRES_USER:     xray
+      POSTGRES_PASSWORD: xray
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U xray -d xray_metrics']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - '3500:3500'
+    environment:
+      DATABASE_URL:  postgres://xray:xray@db:5432/xray_metrics
+      NODE_ENV:      production
+      PORT:          3500
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "node server/config/migrate.js && node database/seeds/seed.js && node server/server.js"
+
+volumes:
+  pgdata:
